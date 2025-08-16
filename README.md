@@ -34,7 +34,10 @@ _built with love, powered by \[redacted\]_
 <br>
 <br>
 
-# Quick Start
+# Vercel Quick Start
+Deploy one project from the packages/clients folder and another from packages/contracts. The output should be set to '.' and that the install option is pnpm install for both.
+
+# Local Quick Start
 <br>
 
 _baby steps_
