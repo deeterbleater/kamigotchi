@@ -1,5 +1,3 @@
-#!/bin/bash
- 
 if [[ $MODE == "production" ]]; then 
   pnpm -F client build:prod
 elif [[ $MODE == "staging" ]]; then
