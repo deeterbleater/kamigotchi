@@ -64,20 +64,19 @@ export const KamiList = (props: Props) => {
         <EmptyText
           linkColor='#d44c79'
           text={[
-            [
-              'You are Kamiless. ',
-              '\n',
-              ' Go to ',
-              {
-                text: 'Sudoswap',
-                href: 'https://sudoswap.xyz/#/browse/yominet/buy/0x5d4376b62fa8ac16dfabe6a9861e11c33a48c677',
-              },
-              ' to get a Kami!',
-            ],
-            ['If you already have Kami, go to Scrap Confluence to bridge them in.'],
+            'You are Kamiless.',
+            '\n',
+            {
+              before: 'Go to ',
+              linkText: 'Sudoswap',
+              href: 'https://sudoswap.xyz/#/browse/yominet/buy/0x5d4376b62fa8ac16dfabe6a9861e11c33a48c677',
+              after: ' to get a Kami! ',
+            },
+            'If you already have Kami, go to Scrap Confluence to bridge them in.',
           ]}
         />
       )}
+
       <KamisExpanded
         actions={actions}
         data={data}
@@ -86,6 +85,7 @@ export const KamiList = (props: Props) => {
         utils={utils}
         isVisible={modals.party && view === 'expanded'}
       />
+
       <KamisCollapsed
         actions={actions}
         data={data}
@@ -97,7 +97,7 @@ export const KamiList = (props: Props) => {
       <KamisExternal
         actions={actions}
         controls={controls}
-        data={{ ...data, kamis: wildKamis }}
+        data={{ ...data, kamis: data.wildKamis }}
         utils={utils}
         isVisible={modals.party && view === 'external'}
       />
