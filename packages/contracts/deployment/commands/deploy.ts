@@ -34,17 +34,37 @@ const run = async () => {
     forge: argv.forge,
     reuseComponents: argv.reuseComps,
   });
-  if (init) {
-    openurl.open(
-      'http://localhost:3000/?worldAddress=' +
-        result.deployedWorldAddress +
-        '&initialBlockNumber=' +
-        result.startBlock
-    );
-  }
-
   await setAutoMine(false);
   if (init) await setTimestamp();
+
+  if (init) {
+    const appUrl =
+      'http://localhost:3000/?worldAddress=' +
+      result.deployedWorldAddress +
+      '&initialBlockNumber=' +
+      result.startBlock;
+
+    // Machine-readable line for scripts to parse
+    console.log(
+      `DEPLOY_INFO worldAddress=${result.deployedWorldAddress} initialBlockNumber=${result.startBlock} url=${appUrl}`
+    );
+
+    // Only attempt to auto-open the browser on desktop platforms unless explicitly disabled.
+    const shouldOpenBrowser =
+      (process.env.OPEN_BROWSER !== 'false') &&
+      !argv.noOpen &&
+      (process.platform === 'darwin' || process.platform === 'win32');
+
+    if (shouldOpenBrowser) {
+      try {
+        openurl.open(appUrl);
+      } catch (err) {
+        console.warn('Could not open browser automatically. Open manually at:', appUrl);
+      }
+    } else {
+      console.log('Open the client manually at:', appUrl);
+    }
+  }
 };
 
 run();
