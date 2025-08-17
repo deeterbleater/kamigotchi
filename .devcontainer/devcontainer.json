@@ -1,0 +1,24 @@
+{
+    "name": "kamigotchi-cloud-dev",
+    "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+    "features": {
+      "ghcr.io/devcontainers/features/node:1": { "version": "20" },
+      "ghcr.io/devcontainers/features/rust:1": {}
+    },
+    "updateContentCommand": "corepack enable && corepack prepare pnpm@9 --activate",
+    "postCreateCommand": "bash .devcontainer/setup.sh",
+    "forwardPorts": [3000, 8545],
+    "portsAttributes": {
+      "3000": { "label": "Vite dev server", "onAutoForward": "openBrowser" },
+      "8545": { "label": "Anvil RPC", "onAutoForward": "notify" }
+    },
+    "customizations": {
+      "vscode": {
+        "extensions": [
+          "rust-lang.rust-analyzer",
+          "esbenp.prettier-vscode",
+          "dbaeumer.vscode-eslint"
+        ]
+      }
+    }
+  }
