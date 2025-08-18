@@ -12,6 +12,7 @@ import { Kami } from 'network/shapes/Kami';
 import { abbreviateAddress } from 'utils/address';
 import { playClick } from 'utils/sounds';
 import { Bio } from './Bio';
+import { useMirroredImage } from './useMirroredImage';
 
 interface Props {
   account: Account; // account selected for viewing
@@ -29,6 +30,7 @@ export const Header = (props: Props) => {
   const { handlePfpChange, setBio } = actions;
 
   const [tick, setTick] = useState(Date.now());
+  const mirroredEdit = useMirroredImage(ActionIcons.edit as unknown as string, 'horizontal');
 
   /////////////////
   // TRACKING
@@ -94,7 +96,7 @@ export const Header = (props: Props) => {
         <Text size={0.6}>#{account.index}</Text>
       </Overlay>
       {isSelf ? (
-        <Popover cursor={`url(${ActionIcons.edit}), auto`} key='profile' content={KamisDropDown()}>
+        <Popover cursor={`url(${mirroredEdit}), auto`} key='profile' content={KamisDropDown()}>
           {Pfp()}
         </Popover>
       ) : (
