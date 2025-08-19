@@ -74,8 +74,8 @@ export class SyncWorker<C extends Components> implements DoWork<Input, NetworkEv
   private config?: SyncWorkerConfig;
 
   private retryCount = 0;
-  private retryDelays = [5000, 15000]; // ms
-  private maxRetries = 2;
+  private retryDelays = [5000, 15000, 30000, 30000, 30000]; // ms
+  private maxRetries = 5;
 
   /**
    * Returns the delay (in ms) for the current retry attempt.
