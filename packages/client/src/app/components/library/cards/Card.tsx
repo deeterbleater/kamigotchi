@@ -17,6 +17,7 @@ interface Props {
     showLevelUp?: boolean;
     showSkillPoints?: boolean;
     tooltip?: string[];
+    background?: React.ReactNode; // optional background layer behind the image
   };
   fullWidth?: boolean;
 }
@@ -38,6 +39,7 @@ export const Card = (props: Props) => {
     <Wrapper fullWidth={fullWidth}>
       <TextTooltip text={image?.tooltip ?? []}>
         <ImageContainer scale={scale} padding={image?.padding}>
+          {!!image?.background && <BackgroundSlot>{image.background}</BackgroundSlot>}
           <Overlay bottom={scale * 0.075} right={scale * 0.06}>
             <Text size={scale * 0.075}>{image?.overlay}</Text>
           </Overlay>
@@ -100,6 +102,12 @@ const Container = styled.div`
   display: flex;
   flex-flow: column nowrap;
   align-items: stretch;
+`;
+
+const BackgroundSlot = styled.div`
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 `;
 
 const Text = styled.div<{ size: number }>`

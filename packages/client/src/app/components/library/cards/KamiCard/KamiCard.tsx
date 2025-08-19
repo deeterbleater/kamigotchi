@@ -11,6 +11,8 @@ import { playClick } from 'utils/sounds';
 import { Card } from '../';
 import { Cooldown } from './Cooldown';
 import { Health } from './Health';
+import { calcCooldown, calcCooldownRequirement, onCooldown } from 'app/cache/kami/calcs/base';
+import { SteamShader } from 'app/components/shaders/SteamShader';
 
 interface Props {
   kami: Kami; // assumed to have a harvest attached
@@ -123,6 +125,12 @@ export const KamiCard = (props: Props) => {
     </Buffs>
   );
 
+  // compute cooldown progress
+  const totalCooldown = calcCooldownRequirement(kami);
+  const remaining = calcCooldown(kami);
+  const progress = totalCooldown > 0 ? Math.min(1, Math.max(0, remaining / totalCooldown)) : 0;
+  const shaped = Math.pow(progress, 1.5);
+
   return (
     <Card
       image={{
@@ -130,6 +138,20 @@ export const KamiCard = (props: Props) => {
         showLevelUp: showLevelUp && canLevel,
         showSkillPoints: showSkillPoints && (kami.skills?.points ?? 0) > 0,
         onClick: handleKamiClick,
+        background:
+          showCooldown && onCooldown(kami)
+            ? (
+              <SteamShader
+                speed={0.25}
+                density={0.05 + 1.95 * shaped}
+                brightness={0.88}
+                // Decrease opacity
+                alpha={(0.2 + 0.8 * shaped) * 0.8}
+                hue={0.0}
+                vertical
+              />
+            )
+            : undefined,
       }}
     >
       {Title}
