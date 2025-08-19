@@ -21,20 +21,19 @@ interface SteamShaderProps {
 }
 
 export const SteamShader: React.FC<SteamShaderProps> = ({
-  speed = 0.25,
-  density = 1.0,
+  speed = 0.65,
+  density = 0.90,
   brightness = 1.0,
   alpha = 0.8,
   hue = 0.0,
   vertical = true,
   paused,
-  // default mask tuned for Kami body near upper-middle
-  maskCenter = { x: 0.5, y: 0.74 },
-  maskRadius = 0.30,
-  maskHeight = 0.24,
-  maskFeather = 0.04,
-  cutoutOffset = 0.10,
-  cutoutRadius = 0.14,
+  maskCenter = { x: 0.35, y: 1.2 },
+  maskRadius = 1.90,
+  maskHeight = 0.14,
+  maskFeather = 0.14,
+  cutoutOffset = 0.20,
+  cutoutRadius = 0.24,
 }) => {
   const fragmentShader = `
     precision mediump float;
