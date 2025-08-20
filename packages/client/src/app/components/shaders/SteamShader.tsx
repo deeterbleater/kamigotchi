@@ -18,22 +18,29 @@ interface SteamShaderProps {
   // face cutout to avoid covering faces
   cutoutOffset?: number; // distance above maskCenter (toward top)
   cutoutRadius?: number; // radius of face hole
+  // bobbing (applies to whole mask & face fade)
+  bobAmplitude?: number; // vUv units (0..1)
+  bobFrequency?: number; // cycles per second
+  bobPhase?: number; // radians
 }
 
 export const SteamShader: React.FC<SteamShaderProps> = ({
-  speed = 0.65,
+  speed = 1.65,
   density = 0.90,
   brightness = 1.0,
   alpha = 0.8,
   hue = 0.0,
   vertical = true,
   paused,
-  maskCenter = { x: 0.35, y: 1.2 },
-  maskRadius = 1.90,
-  maskHeight = 0.14,
+  maskCenter = { x: 0.35, y: 1.0 },
+  maskRadius = 0.90,
+  maskHeight = 0.54,
   maskFeather = 0.14,
-  cutoutOffset = 0.20,
+  cutoutOffset = 0.40,
   cutoutRadius = 0.24,
+  bobAmplitude = 0.035,
+  bobFrequency = 0.7,
+  bobPhase = 0.0,
 }) => {
   const fragmentShader = `
     precision mediump float;
@@ -52,6 +59,9 @@ export const SteamShader: React.FC<SteamShaderProps> = ({
     uniform float uMaskFeather;
     uniform float uCutoutOffset;
     uniform float uCutoutRadius;
+    uniform float uBobAmp;
+    uniform float uBobFreq;
+    uniform float uBobPhase;
 
     float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
     float noise(vec2 p){
@@ -77,7 +87,6 @@ export const SteamShader: React.FC<SteamShaderProps> = ({
       return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
     }
     void main(){
-      // Pixel-correct uv keeping orientation
       vec2 res = iResolution.xy;
       vec2 uv = (vUv * 2.0 - 1.0);
       float aspect = res.x / max(res.y, 1.0);
@@ -103,21 +112,22 @@ export const SteamShader: React.FC<SteamShaderProps> = ({
 
       steam *= 0.85 + 0.15 * sin(6.2831 * (t * 0.25 - uv.y * 0.5));
 
-      // Mask: semicircle + rectangle (below center) with face cutout above center
+      // bobbing offset
+      float bob = uBobAmp * sin(6.28318530718 * uBobFreq * iTime + uBobPhase);
+
+      // Mask: semicircle + rectangle (below center)
       vec2 uv01 = vUv;
       float cx = uMaskCenter.x;
-      float cy = uMaskCenter.y;
+      float cy = uMaskCenter.y + bob;
       float r = uMaskRadius;
       float h = uMaskHeight;
       float f = max(uMaskFeather, 0.0001);
 
-      // semicircle below center
       float d = length(uv01 - vec2(cx, cy));
       float insideCircle = smoothstep(r + f, r - f, d);
       float belowCenter = smoothstep(-f, f, cy - uv01.y);
       float semiMask = insideCircle * belowCenter;
 
-      // rectangle from center downward (body region)
       float dx = abs(uv01.x - cx) - r;
       float insideX = smoothstep(0.0, f, -dx);
       float aboveBottom = smoothstep(-f, f, uv01.y - cy);
@@ -126,13 +136,13 @@ export const SteamShader: React.FC<SteamShaderProps> = ({
 
       float mask = clamp(max(semiMask, rectMask), 0.0, 1.0);
 
-      // face cutout above center: subtract a circle so faces are not occluded
+      // Radial face fade at head center: attenuate steam near face
       vec2 faceC = vec2(cx, cy - uCutoutOffset);
       float faceD = length(uv01 - faceC);
-      float faceHole = smoothstep(uCutoutRadius - f, uCutoutRadius + f, faceD);
-      mask *= (1.0 - faceHole);
+      float faceFade = smoothstep(0.0, uCutoutRadius, faceD);
+      mask *= faceFade;
 
-      // Gradient falloff: strong near the center line and body, fades toward edges and upward
+      // Gradient falloff across mask body
       float distNorm = d / max(r, 1e-5);
       float gradCircle = 1.0 - smoothstep(0.2, 1.0, distNorm);
       float yDist = clamp((uv01.y - cy) / max(h, 1e-5), 0.0, 1.0);
@@ -160,6 +170,9 @@ export const SteamShader: React.FC<SteamShaderProps> = ({
     uMaskFeather: { value: maskFeather },
     uCutoutOffset: { value: cutoutOffset },
     uCutoutRadius: { value: cutoutRadius },
+    uBobAmp: { value: bobAmplitude },
+    uBobFreq: { value: bobFrequency },
+    uBobPhase: { value: bobPhase },
   };
 
   const speedRef = useRef(speed);
@@ -174,6 +187,9 @@ export const SteamShader: React.FC<SteamShaderProps> = ({
   const maskFeatherRef = useRef(maskFeather);
   const cutoutOffsetRef = useRef(cutoutOffset);
   const cutoutRadiusRef = useRef(cutoutRadius);
+  const bobAmpRef = useRef(bobAmplitude);
+  const bobFreqRef = useRef(bobFrequency);
+  const bobPhaseRef = useRef(bobPhase);
 
   useEffect(() => { speedRef.current = speed; }, [speed]);
   useEffect(() => { densityRef.current = density; }, [density]);
@@ -187,6 +203,9 @@ export const SteamShader: React.FC<SteamShaderProps> = ({
   useEffect(() => { maskFeatherRef.current = maskFeather; }, [maskFeather]);
   useEffect(() => { cutoutOffsetRef.current = cutoutOffset; }, [cutoutOffset]);
   useEffect(() => { cutoutRadiusRef.current = cutoutRadius; }, [cutoutRadius]);
+  useEffect(() => { bobAmpRef.current = bobAmplitude; }, [bobAmplitude]);
+  useEffect(() => { bobFreqRef.current = bobFrequency; }, [bobFrequency]);
+  useEffect(() => { bobPhaseRef.current = bobPhase; }, [bobPhase]);
 
   return (
     <ShaderCanvas
@@ -210,6 +229,9 @@ export const SteamShader: React.FC<SteamShaderProps> = ({
         if (u.uMaskFeather) u.uMaskFeather.value = maskFeatherRef.current;
         if (u.uCutoutOffset) u.uCutoutOffset.value = cutoutOffsetRef.current;
         if (u.uCutoutRadius) u.uCutoutRadius.value = cutoutRadiusRef.current;
+        if (u.uBobAmp) u.uBobAmp.value = bobAmpRef.current;
+        if (u.uBobFreq) u.uBobFreq.value = bobFreqRef.current;
+        if (u.uBobPhase) u.uBobPhase.value = bobPhaseRef.current;
       }}
     />
   );
