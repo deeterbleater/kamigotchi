@@ -57,8 +57,8 @@ export const BlockReveal: React.FC<BlockRevealProps> = ({
       // CSS transition-based pop
       cell.style.transition = `opacity ${popDurationMs}ms ease-out, transform ${popDurationMs}ms ease-out`;
       cell.style.opacity = String(next);
-      // Horizontal gaps: collapse height only; slightly oversize when visible to avoid hairline gaps
-      cell.style.transform = next ? 'scaleY(1.03)' : 'scaleY(0)';
+      // Slight oversize in both axes to avoid 1px seams; collapse height for reveal
+      cell.style.transform = next ? 'scale(1.02, 1.06)' : 'scale(1.02, 0)';
     });
   }, [progress, rows, cols, order, popDurationMs]);
 
@@ -81,13 +81,16 @@ const Cover = styled.div`
   position: absolute;
   inset: 0;
   display: grid;
+  gap: 0;
   pointer-events: none;
 `;
 
 const Cell = styled.div`
-  background: #1a1a1a; /* dark gray */
-  opacity: 1;
-  transform: scaleY(1.03); /* slight overlap to remove gaps */
+  background:rgb(208, 208, 208); /* match CRT base gray */
+  opacity: 0.5;
+  transform: scale(1.02, 1.06); /* slight overlap to remove gaps */
+  transform-origin: center;
+  backface-visibility: hidden;
   will-change: opacity, transform;
 `;
 

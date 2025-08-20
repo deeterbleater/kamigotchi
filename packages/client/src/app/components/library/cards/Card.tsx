@@ -20,6 +20,7 @@ interface Props {
     skillPoints?: boolean;
     background?: React.ReactNode;
     foreground?: React.ReactNode; // rendered above image
+    filter?: string; // CSS filter applied to base image only
   };
   fullWidth?: boolean;
 }
@@ -49,7 +50,7 @@ export const Card = (props: Props) => {
           <Overlay top={0.5} right={0.5}>
             {!!image?.showSkillPoints && <Sp>SP</Sp>}
           </Overlay>
-          <Image src={image?.icon} onClick={handleImageClick} />
+          <Image src={image?.icon} onClick={handleImageClick} style={{ filter: image?.filter }} />
           {!!image?.foreground && <ForegroundSlot>{image.foreground}</ForegroundSlot>}
         </ImageContainer>
       </TextTooltip>

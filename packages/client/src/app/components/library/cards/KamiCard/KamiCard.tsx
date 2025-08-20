@@ -136,6 +136,10 @@ export const KamiCard = (props: Props) => {
   const remaining = calcCooldown(kami);
   const progress = totalCooldown > 0 ? Math.min(1, Math.max(0, remaining / totalCooldown)) : 0;
   const shaped = Math.pow(progress, 1.5);
+  const cdFracGlobal = 1 - shaped; // 0 at start -> 1 at end
+  // Grayscale stays full until last 25%, then fades to color
+  const grayPhase = Math.max(0, (cdFracGlobal - 0.75) / 0.25); // 0..1 after 75%
+  const grayAmount = cdFracGlobal < 0.75 ? 1 : Math.max(0, 1 - grayPhase);
 
   return (
     <Card
@@ -144,11 +148,15 @@ export const KamiCard = (props: Props) => {
         showLevelUp: showLevelUp && canLevel,
         showSkillPoints: showSkillPoints && (kami.skills?.points ?? 0) > 0,
         onClick: handleKamiClick,
+        filter:
+          showCooldown && onCooldown(kami)
+            ? (grayAmount > 0 ? `grayscale(${grayAmount}) contrast(1.1)` : undefined)
+            : undefined,
         background: undefined,
         foreground:
           showCooldown && onCooldown(kami)
             ? (() => {
-                const cdFrac = 1 - shaped; // 0 at start -> 1 at end
+                const cdFrac = cdFracGlobal; // 0 at start -> 1 at end
                 // Block reveal completes by 75% of cooldown
                 const blockProgress = Math.max(0, Math.min(1, 1 - cdFrac / 0.75));
                 // Static begins clearing only after 75%

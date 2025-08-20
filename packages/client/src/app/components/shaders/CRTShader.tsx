@@ -21,13 +21,13 @@ interface CRTShaderProps {
   bobAmplitude?: number;
   bobFrequency?: number;
   bobPhase?: number;
-  // static tuning
   vertJerkOpt?: number;
   vertMovementOpt?: number;
   bottomStaticOpt?: number;
   scalinesOpt?: number;
   rgbOffsetOpt?: number;
   horzFuzzOpt?: number;
+  gridSize?: number;
 }
 
 const CRT_FS = `
@@ -132,7 +132,7 @@ const CRT_FS = `
 export const makeCRTLayer = (opts: Partial<CRTShaderProps> = {}): ShaderLayer => {
   const {
     intensity = 0.6,
-    brightness = 1.0,
+    brightness = 0.4,
     alpha = 0.5,
     vertical = true,
     maskCenter = { x: 0.35, y: 1.0 },
@@ -144,16 +144,15 @@ export const makeCRTLayer = (opts: Partial<CRTShaderProps> = {}): ShaderLayer =>
     topSplit = 0.0,
     topFeather = 0.12,
     bobAmplitude = 0.015,
-    bobFrequency = 0.6,
-    bobPhase = 0.0,
+    bobFrequency = 0.2,
+    bobPhase = 0.5,
     vertJerkOpt = 1.0,
     vertMovementOpt = 1.0,
     bottomStaticOpt = 1.0,
     scalinesOpt = 2.0,
     rgbOffsetOpt = 1.0,
     horzFuzzOpt = 4.0,
-    // new
-    gridSize = 24,
+    gridSize = 36,
   } = opts;
 
   const uniforms: Record<string, THREE.IUniform> = {
