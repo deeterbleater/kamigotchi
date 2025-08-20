@@ -17,7 +17,8 @@ interface Props {
     showLevelUp?: boolean;
     showSkillPoints?: boolean;
     tooltip?: string[];
-    background?: React.ReactNode; // optional background layer behind the image
+    skillPoints?: boolean;
+    background?: React.ReactNode;
   };
   fullWidth?: boolean;
 }
