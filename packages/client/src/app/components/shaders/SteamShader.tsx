@@ -22,25 +22,30 @@ interface SteamShaderProps {
   bobAmplitude?: number; // vUv units (0..1)
   bobFrequency?: number; // cycles per second
   bobPhase?: number; // radians
+  // top-half gradient mask
+  topSplit?: number; // y in vUv (0 bottom .. 1 top), default 0.5
+  topFeather?: number; // softness around split, default 0.08
 }
 
 export const SteamShader: React.FC<SteamShaderProps> = ({
   speed = 1.65,
   density = 0.90,
   brightness = 1.0,
-  alpha = 0.8,
-  hue = 0.0,
+  alpha = 0.9,
+  hue = 0.3,
   vertical = true,
   paused,
-  maskCenter = { x: 0.35, y: 1.0 },
-  maskRadius = 0.90,
+  maskCenter = { x: 0.35, y: 1.2 },
+  maskRadius = 0.45,
   maskHeight = 0.54,
   maskFeather = 0.14,
   cutoutOffset = 0.40,
-  cutoutRadius = 0.24,
-  bobAmplitude = 0.035,
-  bobFrequency = 0.7,
-  bobPhase = 0.0,
+  cutoutRadius = 0.2,
+  bobAmplitude = 0.01,
+  bobFrequency = 0.812,
+  bobPhase = 0.1,
+  topSplit = 0.7,
+  topFeather = 0.18,
 }) => {
   const fragmentShader = `
     precision mediump float;
@@ -62,6 +67,8 @@ export const SteamShader: React.FC<SteamShaderProps> = ({
     uniform float uBobAmp;
     uniform float uBobFreq;
     uniform float uBobPhase;
+    uniform float uTopSplit;
+    uniform float uTopFeather;
 
     float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
     float noise(vec2 p){
@@ -136,6 +143,10 @@ export const SteamShader: React.FC<SteamShaderProps> = ({
 
       float mask = clamp(max(semiMask, rectMask), 0.0, 1.0);
 
+      // Top-half gradient mask (fade in above uTopSplit, fade out below)
+      float topMask = smoothstep(uTopSplit - uTopFeather, uTopSplit + uTopFeather, uv01.y);
+      mask *= topMask;
+
       // Radial face fade at head center: attenuate steam near face
       vec2 faceC = vec2(cx, cy - uCutoutOffset);
       float faceD = length(uv01 - faceC);
@@ -143,9 +154,9 @@ export const SteamShader: React.FC<SteamShaderProps> = ({
       mask *= faceFade;
 
       // Gradient falloff across mask body
-      float distNorm = d / max(r, 1e-5);
+      float distNorm = d / max(r, 1.0e-5);
       float gradCircle = 1.0 - smoothstep(0.2, 1.0, distNorm);
-      float yDist = clamp((uv01.y - cy) / max(h, 1e-5), 0.0, 1.0);
+      float yDist = clamp((uv01.y - cy) / max(h, 1.0e-5), 0.0, 1.0);
       float gradRect = 1.0 - smoothstep(0.0, 1.0, yDist);
       float gradient = clamp(max(gradCircle, gradRect), 0.0, 1.0);
 
@@ -173,6 +184,8 @@ export const SteamShader: React.FC<SteamShaderProps> = ({
     uBobAmp: { value: bobAmplitude },
     uBobFreq: { value: bobFrequency },
     uBobPhase: { value: bobPhase },
+    uTopSplit: { value: topSplit },
+    uTopFeather: { value: topFeather },
   };
 
   const speedRef = useRef(speed);
@@ -190,6 +203,8 @@ export const SteamShader: React.FC<SteamShaderProps> = ({
   const bobAmpRef = useRef(bobAmplitude);
   const bobFreqRef = useRef(bobFrequency);
   const bobPhaseRef = useRef(bobPhase);
+  const topSplitRef = useRef(topSplit);
+  const topFeatherRef = useRef(topFeather);
 
   useEffect(() => { speedRef.current = speed; }, [speed]);
   useEffect(() => { densityRef.current = density; }, [density]);
@@ -206,6 +221,8 @@ export const SteamShader: React.FC<SteamShaderProps> = ({
   useEffect(() => { bobAmpRef.current = bobAmplitude; }, [bobAmplitude]);
   useEffect(() => { bobFreqRef.current = bobFrequency; }, [bobFrequency]);
   useEffect(() => { bobPhaseRef.current = bobPhase; }, [bobPhase]);
+  useEffect(() => { topSplitRef.current = topSplit; }, [topSplit]);
+  useEffect(() => { topFeatherRef.current = topFeather; }, [topFeather]);
 
   return (
     <ShaderCanvas
@@ -232,6 +249,8 @@ export const SteamShader: React.FC<SteamShaderProps> = ({
         if (u.uBobAmp) u.uBobAmp.value = bobAmpRef.current;
         if (u.uBobFreq) u.uBobFreq.value = bobFreqRef.current;
         if (u.uBobPhase) u.uBobPhase.value = bobPhaseRef.current;
+        if (u.uTopSplit) u.uTopSplit.value = topSplitRef.current;
+        if (u.uTopFeather) u.uTopFeather.value = topFeatherRef.current;
       }}
     />
   );
