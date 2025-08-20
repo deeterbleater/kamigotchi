@@ -1,13 +1,14 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { ShaderCanvas } from './ShaderCanvas';
+import { ShaderLayer } from './ShaderStack';
 
 interface SteamShaderProps {
   speed?: number; // speed
   density?: number; // amount of wisps
   brightness?: number; // color brightness
   alpha?: number; // opacity
-  hue?: number; // tint in HSV
+  hue?: number; // tint in HSV (used if no bgColor passed)
   vertical?: boolean; // orientation; default true
   paused?: boolean;
   // mask in vUv 0..1 space
@@ -25,29 +26,12 @@ interface SteamShaderProps {
   // top-half gradient mask
   topSplit?: number; // y in vUv (0 bottom .. 1 top), default 0.5
   topFeather?: number; // softness around split, default 0.08
+  // background-aware tinting
+  bgColor?: { r: number; g: number; b: number }; // 0..1 rgb
+  bgTintMix?: number; // 0..1 mix of complementary-of-bg vs base hue
 }
 
-export const SteamShader: React.FC<SteamShaderProps> = ({
-  speed = 1.65,
-  density = 0.90,
-  brightness = 1.0,
-  alpha = 0.9,
-  hue = 0.3,
-  vertical = true,
-  paused,
-  maskCenter = { x: 0.35, y: 1.2 },
-  maskRadius = 0.45,
-  maskHeight = 0.54,
-  maskFeather = 0.14,
-  cutoutOffset = 0.40,
-  cutoutRadius = 0.2,
-  bobAmplitude = 0.01,
-  bobFrequency = 0.812,
-  bobPhase = 0.1,
-  topSplit = 0.7,
-  topFeather = 0.18,
-}) => {
-  const fragmentShader = `
+const STEAM_FS = `
     precision mediump float;
     varying vec2 vUv;
     uniform float iTime;
@@ -69,6 +53,8 @@ export const SteamShader: React.FC<SteamShaderProps> = ({
     uniform float uBobPhase;
     uniform float uTopSplit;
     uniform float uTopFeather;
+    uniform vec3 uBgColor;
+    uniform float uBgTintMix; // 0..1
 
     float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
     float noise(vec2 p){
@@ -88,41 +74,41 @@ export const SteamShader: React.FC<SteamShaderProps> = ({
       }
       return v;
     }
+
+    // rgb<->hsv helpers
+    vec3 rgb2hsv(vec3 c){
+      vec4 K = vec4(0., -1./3., 2./3., -1.);
+      vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+      vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+      float d = q.x - min(q.w, q.y);
+      float e = 1.0e-10;
+      return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+    }
     vec3 hsv2rgb(vec3 c){
       vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
       vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
       return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
     }
+
     void main(){
       vec2 res = iResolution.xy;
       vec2 uv = (vUv * 2.0 - 1.0);
       float aspect = res.x / max(res.y, 1.0);
-      if (uVertical > 0.5) {
-        uv.x *= aspect;
-      } else {
-        uv.y /= aspect;
-        uv = uv.yx;
-      }
+      if (uVertical > 0.5) { uv.x *= aspect; } else { uv.y /= aspect; uv = uv.yx; }
 
       float t = iTime * uSpeed;
-
       vec2 p = uv * vec2(1.0, 2.0) + vec2(0.0, -t * 1.5);
       float w1 = fbm(p * 1.25 + vec2(0.0, -t * 0.5));
       float w2 = fbm(p * 2.0 + vec2(2.3, -t * 0.8));
       float w3 = fbm(p * 3.0 + vec2(-1.7, -t * 0.3));
       float steam = (w1 * 0.6 + w2 * 0.3 + w3 * 0.1);
-
       float edgeSoft = smoothstep(1.15, 1.0, length(uv));
       steam *= mix(1.0, edgeSoft, 0.15);
-
       steam = pow(clamp(steam * (0.8 + 1.6 * uDensity), 0.0, 1.0), 1.25);
-
       steam *= 0.85 + 0.15 * sin(6.2831 * (t * 0.25 - uv.y * 0.5));
 
-      // bobbing offset
       float bob = uBobAmp * sin(6.28318530718 * uBobFreq * iTime + uBobPhase);
 
-      // Mask: semicircle + rectangle (below center)
       vec2 uv01 = vUv;
       float cx = uMaskCenter.x;
       float cy = uMaskCenter.y + bob;
@@ -134,39 +120,64 @@ export const SteamShader: React.FC<SteamShaderProps> = ({
       float insideCircle = smoothstep(r + f, r - f, d);
       float belowCenter = smoothstep(-f, f, cy - uv01.y);
       float semiMask = insideCircle * belowCenter;
-
       float dx = abs(uv01.x - cx) - r;
       float insideX = smoothstep(0.0, f, -dx);
       float aboveBottom = smoothstep(-f, f, uv01.y - cy);
       float belowTop = smoothstep(-f, f, (cy + h) - uv01.y);
       float rectMask = insideX * aboveBottom * belowTop;
-
       float mask = clamp(max(semiMask, rectMask), 0.0, 1.0);
 
-      // Top-half gradient mask (fade in above uTopSplit, fade out below)
       float topMask = smoothstep(uTopSplit - uTopFeather, uTopSplit + uTopFeather, uv01.y);
       mask *= topMask;
 
-      // Radial face fade at head center: attenuate steam near face
       vec2 faceC = vec2(cx, cy - uCutoutOffset);
       float faceD = length(uv01 - faceC);
       float faceFade = smoothstep(0.0, uCutoutRadius, faceD);
       mask *= faceFade;
 
-      // Gradient falloff across mask body
       float distNorm = d / max(r, 1.0e-5);
       float gradCircle = 1.0 - smoothstep(0.2, 1.0, distNorm);
       float yDist = clamp((uv01.y - cy) / max(h, 1.0e-5), 0.0, 1.0);
       float gradRect = 1.0 - smoothstep(0.0, 1.0, yDist);
       float gradient = clamp(max(gradCircle, gradRect), 0.0, 1.0);
 
-      vec3 col = hsv2rgb(vec3(uHue, 0.02, 0.9)) * uBrightness;
-      vec3 rgb = mix(vec3(0.0), col, steam * mask * gradient);
+      // base hue color
+      vec3 baseCol = hsv2rgb(vec3(uHue, 0.7, 1.0));
+      // complementary of background color via HSV hue rotate 180 degrees
+      vec3 bgHSV = rgb2hsv(uBgColor);
+      vec3 compHSV = vec3(fract(bgHSV.x + 0.5), bgHSV.y, 1.0);
+      vec3 compCol = hsv2rgb(compHSV);
+      vec3 tintCol = mix(baseCol, compCol, clamp(uBgTintMix, 0.0, 1.0));
 
+      vec3 col = tintCol * uBrightness;
+      vec3 rgb = mix(vec3(0.0), col, steam * mask * gradient);
       float a = steam * uAlpha * mask * gradient;
       gl_FragColor = vec4(rgb, a);
     }
   `;
+
+export const makeSteamLayer = (opts: Partial<SteamShaderProps> = {}): ShaderLayer => {
+  const {
+    speed = 1.65,
+    density = 0.9,
+    brightness = 2.0,
+    alpha = 0.9,
+    hue = 0.3,
+    vertical = true,
+    maskCenter = { x: 0.35, y: 1.2 },
+    maskRadius = 0.65,
+    maskHeight = 0.54,
+    maskFeather = 0.04,
+    cutoutOffset = 0.4,
+    cutoutRadius = 0.4,
+    bobAmplitude = 0.01,
+    bobFrequency = 0.812,
+    bobPhase = 0.1,
+    topSplit = 0.7,
+    topFeather = 0.12,
+    bgColor,
+    bgTintMix = 1.0,
+  } = opts;
 
   const uniforms: Record<string, THREE.IUniform> = {
     uSpeed: { value: speed },
@@ -186,6 +197,57 @@ export const SteamShader: React.FC<SteamShaderProps> = ({
     uBobPhase: { value: bobPhase },
     uTopSplit: { value: topSplit },
     uTopFeather: { value: topFeather },
+    uBgColor: { value: new THREE.Vector3(bgColor?.r ?? 0.7, bgColor?.g ?? 0.9, bgColor?.b ?? 0.7) },
+    uBgTintMix: { value: bgColor ? bgTintMix : 0.0 },
+  };
+
+  return { fragmentShader: STEAM_FS, uniforms };
+};
+
+export const SteamShader: React.FC<SteamShaderProps> = ({
+  speed = 1.65,
+  density = 0.90,
+  brightness = 2.0,
+  alpha = 0.9,
+  hue = 0.3,
+  vertical = true,
+  paused,
+  maskCenter = { x: 0.35, y: 1.2 },
+  maskRadius = 0.65,
+  maskHeight = 0.54,
+  maskFeather = 0.04,
+  cutoutOffset = 0.40,
+  cutoutRadius = 0.4,
+  bobAmplitude = 0.01,
+  bobFrequency = 0.812,
+  bobPhase = 0.1,
+  topSplit = 0.7,
+  topFeather = 0.12,
+  bgColor,
+  bgTintMix = 1.0,
+}) => {
+  const fragmentShader = STEAM_FS;
+
+  const uniforms: Record<string, THREE.IUniform> = {
+    uSpeed: { value: speed },
+    uDensity: { value: density },
+    uBrightness: { value: brightness },
+    uAlpha: { value: alpha },
+    uHue: { value: hue },
+    uVertical: { value: vertical ? 1.0 : 0.0 },
+    uMaskCenter: { value: new THREE.Vector2(maskCenter.x, maskCenter.y) },
+    uMaskRadius: { value: maskRadius },
+    uMaskHeight: { value: maskHeight },
+    uMaskFeather: { value: maskFeather },
+    uCutoutOffset: { value: cutoutOffset },
+    uCutoutRadius: { value: cutoutRadius },
+    uBobAmp: { value: bobAmplitude },
+    uBobFreq: { value: bobFrequency },
+    uBobPhase: { value: bobPhase },
+    uTopSplit: { value: topSplit },
+    uTopFeather: { value: topFeather },
+    uBgColor: { value: new THREE.Vector3(bgColor?.r ?? 0.7, bgColor?.g ?? 0.9, bgColor?.b ?? 0.7) },
+    uBgTintMix: { value: bgColor ? bgTintMix : 0.0 },
   };
 
   const speedRef = useRef(speed);
@@ -205,6 +267,8 @@ export const SteamShader: React.FC<SteamShaderProps> = ({
   const bobPhaseRef = useRef(bobPhase);
   const topSplitRef = useRef(topSplit);
   const topFeatherRef = useRef(topFeather);
+  const bgColorRef = useRef(bgColor);
+  const bgTintMixRef = useRef(bgTintMix);
 
   useEffect(() => { speedRef.current = speed; }, [speed]);
   useEffect(() => { densityRef.current = density; }, [density]);
@@ -223,6 +287,8 @@ export const SteamShader: React.FC<SteamShaderProps> = ({
   useEffect(() => { bobPhaseRef.current = bobPhase; }, [bobPhase]);
   useEffect(() => { topSplitRef.current = topSplit; }, [topSplit]);
   useEffect(() => { topFeatherRef.current = topFeather; }, [topFeather]);
+  useEffect(() => { bgColorRef.current = bgColor; }, [bgColor]);
+  useEffect(() => { bgTintMixRef.current = bgTintMix; }, [bgTintMix]);
 
   return (
     <ShaderCanvas
@@ -251,11 +317,23 @@ export const SteamShader: React.FC<SteamShaderProps> = ({
         if (u.uBobPhase) u.uBobPhase.value = bobPhaseRef.current;
         if (u.uTopSplit) u.uTopSplit.value = topSplitRef.current;
         if (u.uTopFeather) u.uTopFeather.value = topFeatherRef.current;
+        if (u.uBgColor) {
+          const bg = bgColorRef.current ?? { r: 0.7, g: 0.9, b: 0.7 };
+          u.uBgColor.value.set(bg.r, bg.g, bg.b);
+        }
+        if (u.uBgTintMix) u.uBgTintMix.value = bgTintMixRef.current ?? 0.0;
       }}
     />
   );
 };
 
 export default SteamShader;
+
+// Provide raw-layer factory for ShaderStack consumers
+(SteamShader as any)._rawLayer = (shaped: number): ShaderLayer => {
+  const density = 0.05 + 1.95 * shaped;
+  const alpha = (0.2 + 0.8 * shaped) * 0.8;
+  return makeSteamLayer({ density, alpha });
+};
 
 
