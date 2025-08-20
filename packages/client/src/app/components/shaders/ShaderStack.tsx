@@ -43,13 +43,15 @@ export const ShaderStack: React.FC<ShaderStackProps> = ({
   const frameRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(performance.now());
   const [isVisible, setIsVisible] = useState<boolean>(true);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const ioRef = useRef<IntersectionObserver | null>(null);
 
-  useEffect(() => {
+  const init = () => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container || rendererRef.current) return;
 
     const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: transparent, powerPreference: 'high-performance' });
-    renderer.autoClear = true;
+    renderer.autoClear = false;
     renderer.setClearColor(0x000000, transparent ? 0 : 1);
     rendererRef.current = renderer;
     container.appendChild(renderer.domElement);
@@ -63,12 +65,10 @@ export const ShaderStack: React.FC<ShaderStackProps> = ({
     const geometry = new THREE.PlaneGeometry(2, 2);
     geometryRef.current = geometry;
 
-    // Create one mesh reused for all materials by swapping material per pass
     const mesh = new THREE.Mesh(geometry);
     meshRef.current = mesh;
     scene.add(mesh);
 
-    // Build materials for each layer
     const mats: THREE.ShaderMaterial[] = layers.map((layer) => {
       const mergedUniforms: Record<string, THREE.IUniform> = {
         iTime: { value: 0 },
@@ -92,11 +92,12 @@ export const ShaderStack: React.FC<ShaderStackProps> = ({
     materialsRef.current = mats;
 
     const resize = () => {
+      if (!rendererRef.current || !containerRef.current) return;
       const dpr = Math.min(window.devicePixelRatio || 1, capDevicePixelRatio);
-      const width = container.clientWidth || 1;
-      const height = container.clientHeight || 1;
-      renderer.setPixelRatio(dpr);
-      renderer.setSize(width, height, false);
+      const width = containerRef.current.clientWidth || 1;
+      const height = containerRef.current.clientHeight || 1;
+      rendererRef.current.setPixelRatio(dpr);
+      rendererRef.current.setSize(width, height, false);
       for (const mat of materialsRef.current) {
         const u = mat.uniforms;
         if (u.iResolution) u.iResolution.value.set(width, height, dpr);
@@ -106,57 +107,82 @@ export const ShaderStack: React.FC<ShaderStackProps> = ({
 
     const ro = new ResizeObserver(resize);
     ro.observe(container);
+    resizeObserverRef.current = ro;
+  };
 
-    let io: IntersectionObserver | null = null;
+  const disposeAll = () => {
+    if (frameRef.current) { cancelAnimationFrame(frameRef.current); frameRef.current = null; }
+    const container = containerRef.current;
+    const renderer = rendererRef.current;
+    const scene = sceneRef.current;
+    const mesh = meshRef.current;
+    const geometry = geometryRef.current;
+    if (resizeObserverRef.current) { resizeObserverRef.current.disconnect(); resizeObserverRef.current = null; }
+    if (mesh && scene) scene.remove(mesh);
+    if (geometry) geometry.dispose();
+    for (const m of materialsRef.current) m.dispose();
+    materialsRef.current = [];
+    if (renderer) {
+      renderer.dispose();
+      if (renderer.domElement && container && renderer.domElement.parentElement === container) container.removeChild(renderer.domElement);
+    }
+    rendererRef.current = null;
+    sceneRef.current = null;
+    cameraRef.current = null;
+    meshRef.current = null;
+    geometryRef.current = null;
+  };
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
     if (!animateWhenOffscreen && 'IntersectionObserver' in window) {
-      io = new IntersectionObserver((entries) => {
+      const io = new IntersectionObserver((entries) => {
         for (const entry of entries) setIsVisible(entry.isIntersecting);
       });
       io.observe(container);
+      ioRef.current = io;
     }
+    return () => { if (ioRef.current) { ioRef.current.disconnect(); ioRef.current = null; } };
+  }, [animateWhenOffscreen]);
 
-    const renderFrame = () => {
+  useEffect(() => {
+    if (!paused && (isVisible || animateWhenOffscreen)) {
+      if (!rendererRef.current) init();
+    } else {
+      if (rendererRef.current) disposeAll();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paused, isVisible, animateWhenOffscreen, layers]);
+
+  useEffect(() => {
+    const loop = () => {
       frameRef.current = null;
+      const renderer = rendererRef.current;
+      const scene = sceneRef.current;
+      const camera = cameraRef.current;
+      const mesh = meshRef.current;
+      if (!renderer || !scene || !camera || !mesh) return;
       if (paused || (!isVisible && !animateWhenOffscreen)) return;
-
       const now = performance.now();
       const t = (now - startTimeRef.current) / 1000;
-      renderer.clear();
 
-      const mesh = meshRef.current!;
+      renderer.clear();
       const width = renderer.domElement.width;
       const height = renderer.domElement.height;
-
       for (let i = 0; i < materialsRef.current.length; i++) {
         const mat = materialsRef.current[i];
         if (mat.uniforms.iTime) mat.uniforms.iTime.value = t;
         const layer = layers[i];
-        if (layer.onBeforeFrame) layer.onBeforeFrame(mat.uniforms, t, { width, height });
+        if (layer && layer.onBeforeFrame) layer.onBeforeFrame(mat.uniforms, t, { width, height });
         mesh.material = mat;
         renderer.render(scene, camera);
       }
-
-      frameRef.current = requestAnimationFrame(renderFrame);
+      frameRef.current = requestAnimationFrame(loop);
     };
-    frameRef.current = requestAnimationFrame(renderFrame);
-
-    return () => {
-      if (frameRef.current) cancelAnimationFrame(frameRef.current);
-      if (io) io.disconnect();
-      ro.disconnect();
-      scene.remove(mesh);
-      geometry.dispose();
-      for (const m of materialsRef.current) m.dispose();
-      renderer.dispose();
-      if (renderer.domElement.parentElement === container) container.removeChild(renderer.domElement);
-      rendererRef.current = null;
-      sceneRef.current = null;
-      cameraRef.current = null;
-      meshRef.current = null;
-      materialsRef.current = [];
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (rendererRef.current) frameRef.current = requestAnimationFrame(loop);
+    return () => { if (frameRef.current) cancelAnimationFrame(frameRef.current); };
+  }, [layers, paused, isVisible, animateWhenOffscreen]);
 
   useEffect(() => {
     if (paused) return;

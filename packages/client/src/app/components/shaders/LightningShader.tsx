@@ -102,14 +102,14 @@ const LIGHTNING_FS = `
 
 export const makeLightningLayer = (opts: Partial<LightningShaderProps> = {}): ShaderLayer => {
   const {
-    intensity = 1.0,
+    intensity = 5.0,
     brightness = 1.6,
     alpha = 0.9,
     vertical = true,
     maskCenter = { x: 0.35, y: 1.0 },
     maskRadius = 0.3,
-    maskHeight = 0.5,
-    maskFeather = 0.08,
+    maskHeight = 0.3,
+    maskFeather = 0.1,
     cutoutOffset = 0.3,
     cutoutRadius = 0.28,
     topSplit = 0.6,
@@ -144,26 +144,7 @@ export const makeLightningLayer = (opts: Partial<LightningShaderProps> = {}): Sh
   return { fragmentShader: LIGHTNING_FS, uniforms };
 };
 
-export const LightningShader: React.FC<LightningShaderProps> = ({
-  intensity = 1.0,
-  brightness = 1.6,
-  alpha = 0.9,
-  vertical = true,
-  paused,
-  maskCenter = { x: 0.35, y: 1.0 },
-  maskRadius = 0.3,
-  maskHeight = 0.5,
-  maskFeather = 0.08,
-  cutoutOffset = 0.3,
-  cutoutRadius = 0.28,
-  topSplit = 0.6,
-  topFeather = 0.1,
-  bobAmplitude = 0.02,
-  bobFrequency = 0.6,
-  bobPhase = 0.0,
-  bgColor,
-  bgTintMix = 1.0,
-}) => {
+export const LightningShader: React.FC<Partial<LightningShaderProps>> = (props) => {
   const fragmentShader = `
     precision mediump float;
     varying vec2 vUv;
@@ -244,91 +225,8 @@ export const LightningShader: React.FC<LightningShaderProps> = ({
     }
   `;
 
-  const uniforms: Record<string, THREE.IUniform> = {
-    uIntensity: { value: intensity },
-    uBrightness: { value: brightness },
-    uAlpha: { value: alpha },
-    uVertical: { value: vertical ? 1.0 : 0.0 },
-    uMaskCenter: { value: new THREE.Vector2(maskCenter.x, maskCenter.y) },
-    uMaskRadius: { value: maskRadius },
-    uMaskHeight: { value: maskHeight },
-    uMaskFeather: { value: maskFeather },
-    uCutoutOffset: { value: cutoutOffset },
-    uCutoutRadius: { value: cutoutRadius },
-    uTopSplit: { value: topSplit },
-    uTopFeather: { value: topFeather },
-    uBobAmp: { value: bobAmplitude },
-    uBobFreq: { value: bobFrequency },
-    uBobPhase: { value: bobPhase },
-    uBgColor: { value: new THREE.Vector3(bgColor?.r ?? 0.7, bgColor?.g ?? 0.9, bgColor?.b ?? 0.7) },
-    uBgTintMix: { value: bgColor ? bgTintMix : 1.0 },
-  };
-
-  const refs = {
-    intensityRef: useRef(intensity),
-    brightnessRef: useRef(brightness),
-    alphaRef: useRef(alpha),
-    maskCenterRef: useRef(maskCenter),
-    maskRadiusRef: useRef(maskRadius),
-    maskHeightRef: useRef(maskHeight),
-    maskFeatherRef: useRef(maskFeather),
-    cutoutOffsetRef: useRef(cutoutOffset),
-    cutoutRadiusRef: useRef(cutoutRadius),
-    topSplitRef: useRef(topSplit),
-    topFeatherRef: useRef(topFeather),
-    bobAmpRef: useRef(bobAmplitude),
-    bobFreqRef: useRef(bobFrequency),
-    bobPhaseRef: useRef(bobPhase),
-    bgColorRef: useRef(bgColor),
-    bgMixRef: useRef(bgTintMix),
-  };
-
-  useEffect(() => { refs.intensityRef.current = intensity; }, [intensity]);
-  useEffect(() => { refs.brightnessRef.current = brightness; }, [brightness]);
-  useEffect(() => { refs.alphaRef.current = alpha; }, [alpha]);
-  useEffect(() => { refs.maskCenterRef.current = maskCenter; }, [maskCenter]);
-  useEffect(() => { refs.maskRadiusRef.current = maskRadius; }, [maskRadius]);
-  useEffect(() => { refs.maskHeightRef.current = maskHeight; }, [maskHeight]);
-  useEffect(() => { refs.maskFeatherRef.current = maskFeather; }, [maskFeather]);
-  useEffect(() => { refs.cutoutOffsetRef.current = cutoutOffset; }, [cutoutOffset]);
-  useEffect(() => { refs.cutoutRadiusRef.current = cutoutRadius; }, [cutoutRadius]);
-  useEffect(() => { refs.topSplitRef.current = topSplit; }, [topSplit]);
-  useEffect(() => { refs.topFeatherRef.current = topFeather; }, [topFeather]);
-  useEffect(() => { refs.bobAmpRef.current = bobAmplitude; }, [bobAmplitude]);
-  useEffect(() => { refs.bobFreqRef.current = bobFrequency; }, [bobFrequency]);
-  useEffect(() => { refs.bobPhaseRef.current = bobPhase; }, [bobPhase]);
-  useEffect(() => { refs.bgColorRef.current = bgColor; }, [bgColor]);
-  useEffect(() => { refs.bgMixRef.current = bgTintMix; }, [bgTintMix]);
-
-  return (
-    <ShaderCanvas
-      fragmentShader={fragmentShader}
-      uniforms={uniforms}
-      transparent
-      paused={paused}
-      onBeforeFrame={(u) => {
-        if (u.uIntensity) u.uIntensity.value = refs.intensityRef.current;
-        if (u.uBrightness) u.uBrightness.value = refs.brightnessRef.current;
-        if (u.uAlpha) u.uAlpha.value = refs.alphaRef.current;
-        if (u.uMaskCenter) { const c=refs.maskCenterRef.current; u.uMaskCenter.value.set(c.x,c.y); }
-        if (u.uMaskRadius) u.uMaskRadius.value = refs.maskRadiusRef.current;
-        if (u.uMaskHeight) u.uMaskHeight.value = refs.maskHeightRef.current;
-        if (u.uMaskFeather) u.uMaskFeather.value = refs.maskFeatherRef.current;
-        if (u.uCutoutOffset) u.uCutoutOffset.value = refs.cutoutOffsetRef.current;
-        if (u.uCutoutRadius) u.uCutoutRadius.value = refs.cutoutRadiusRef.current;
-        if (u.uTopSplit) u.uTopSplit.value = refs.topSplitRef.current;
-        if (u.uTopFeather) u.uTopFeather.value = refs.topFeatherRef.current;
-        if (u.uBobAmp) u.uBobAmp.value = refs.bobAmpRef.current;
-        if (u.uBobFreq) u.uBobFreq.value = refs.bobFreqRef.current;
-        if (u.uBobPhase) u.uBobPhase.value = refs.bobPhaseRef.current;
-        if (u.uBgColor) {
-          const bg = refs.bgColorRef.current ?? { r: 0.7, g: 0.9, b: 0.7 };
-          u.uBgColor.value.set(bg.r, bg.g, bg.b);
-        }
-        if (u.uBgTintMix) u.uBgTintMix.value = refs.bgMixRef.current ?? 1.0;
-      }}
-    />
-  );
+  const uniforms = makeLightningLayer(props).uniforms;
+  return <ShaderCanvas fragmentShader={fragmentShader} uniforms={uniforms} transparent paused={props.paused} />;
 };
 
 export default LightningShader;

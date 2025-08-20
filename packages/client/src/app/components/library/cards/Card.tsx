@@ -19,6 +19,7 @@ interface Props {
     tooltip?: string[];
     skillPoints?: boolean;
     background?: React.ReactNode;
+    foreground?: React.ReactNode; // rendered above image
   };
   fullWidth?: boolean;
 }
@@ -49,6 +50,7 @@ export const Card = (props: Props) => {
             {!!image?.showSkillPoints && <Sp>SP</Sp>}
           </Overlay>
           <Image src={image?.icon} onClick={handleImageClick} />
+          {!!image?.foreground && <ForegroundSlot>{image.foreground}</ForegroundSlot>}
         </ImageContainer>
       </TextTooltip>
       <Container>{children}</Container>
@@ -106,6 +108,12 @@ const Container = styled.div`
 `;
 
 const BackgroundSlot = styled.div`
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+`;
+
+const ForegroundSlot = styled.div`
   position: absolute;
   inset: 0;
   pointer-events: none;

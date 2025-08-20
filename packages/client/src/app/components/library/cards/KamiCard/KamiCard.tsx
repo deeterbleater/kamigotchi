@@ -15,8 +15,10 @@ import { calcCooldown, calcCooldownRequirement, onCooldown } from 'app/cache/kam
 import { SteamShader } from 'app/components/shaders/SteamShader';
 import { LightningShader } from 'app/components/shaders/LightningShader';
 import { ShaderStack } from 'app/components/shaders/ShaderStack';
-import { makeLightningLayer } from 'app/components/shaders/LightningShader';
-import { makeSteamLayer } from 'app/components/shaders/SteamShader';
+import { makeStaticLayer } from 'app/components/shaders/StaticShader';
+import { CRTShader } from 'app/components/shaders/CRTShader';
+import { makeConwayRevealLayer } from 'app/components/shaders/ConwayRevealShader';
+import { BlockReveal } from 'app/components/shaders/BlockReveal';
 
 interface Props {
   kami: Kami; // assumed to have a harvest attached
@@ -142,16 +144,32 @@ export const KamiCard = (props: Props) => {
         showLevelUp: showLevelUp && canLevel,
         showSkillPoints: showSkillPoints && (kami.skills?.points ?? 0) > 0,
         onClick: handleKamiClick,
-        background:
+        background: undefined,
+        foreground:
           showCooldown && onCooldown(kami)
-            ? (
-              <ShaderStack
-                layers={[
-                  makeLightningLayer({ intensity: Math.max(0.05, shaped), brightness: 1.6, alpha: 0.85, vertical: true }),
-                  makeSteamLayer({ speed: 0.25, density: 0.05 + 1.95 * shaped, brightness: 0.88, alpha: (0.2 + 0.8 * shaped) * 0.8, hue: 0.0, vertical: true }),
-                ]}
-              />
-            )
+            ? (() => {
+                const cdFrac = 1 - shaped; // 0 at start -> 1 at end
+                // Block reveal completes by 75% of cooldown
+                const blockProgress = Math.max(0, Math.min(1, 1 - cdFrac / 0.75));
+                // Static begins clearing only after 75%
+                const staticPhase = Math.max(0, (cdFrac - 0.75) / 0.25); // 0..1 after 75%
+                const staticAlpha = 0.96 * (1 - staticPhase); // hold until 75%, then fade to 0
+                return (
+                  <>
+                    {/* Lowest: Block reveal overlay */}
+                    <BlockReveal
+                      progress={blockProgress}
+                      rows={20}
+                      cols={20}
+                      seed={kami.index || 1}
+                    />
+                    {/* Middle: CRT, constant */}
+                    <CRTShader brightness={1.6} alpha={0.96} />
+                    {/* Top: Static, clears only in last 25% */}
+                    <ShaderStack layers={[ makeStaticLayer({ brightness: 1.6, alpha: staticAlpha, vertical: true }) ]} />
+                  </>
+                );
+              })()
             : undefined,
       }}
     >

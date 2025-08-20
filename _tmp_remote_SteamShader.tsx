@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+﻿import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { ShaderCanvas } from './ShaderCanvas';
 import { ShaderLayer } from './ShaderStack';
@@ -159,22 +159,22 @@ const STEAM_FS = `
 export const makeSteamLayer = (opts: Partial<SteamShaderProps> = {}): ShaderLayer => {
   const {
     speed = 1.65,
-    density = 0.90,
-    brightness = 1.0,
-    alpha = 0.8,
-    hue = 0.0,
+    density = 0.9,
+    brightness = 2.0,
+    alpha = 0.9,
+    hue = 0.3,
     vertical = true,
-    maskCenter = { x: 0.35, y: 1.08 },
-    maskRadius = 0.90,
-    maskHeight = 0.94,
-    maskFeather = 0.14,
-    cutoutOffset = 0.40,
-    cutoutRadius = 0.24,
-    bobAmplitude = 0.035,
-    bobFrequency = 0.78,
-    bobPhase = 0.0,
+    maskCenter = { x: 0.35, y: 1.2 },
+    maskRadius = 0.65,
+    maskHeight = 0.54,
+    maskFeather = 0.04,
+    cutoutOffset = 0.4,
+    cutoutRadius = 0.4,
+    bobAmplitude = 0.01,
+    bobFrequency = 0.812,
+    bobPhase = 0.1,
     topSplit = 0.7,
-    topFeather = 0.80,
+    topFeather = 0.12,
     bgColor,
     bgTintMix = 1.0,
   } = opts;
@@ -204,9 +204,128 @@ export const makeSteamLayer = (opts: Partial<SteamShaderProps> = {}): ShaderLaye
   return { fragmentShader: STEAM_FS, uniforms };
 };
 
-export const SteamShader: React.FC<Partial<SteamShaderProps>> = (props) => (
-  <ShaderCanvas fragmentShader={STEAM_FS} uniforms={makeSteamLayer(props).uniforms} transparent paused={props.paused} />
-);
+export const SteamShader: React.FC<SteamShaderProps> = ({
+  speed = 1.65,
+  density = 0.90,
+  brightness = 2.0,
+  alpha = 0.9,
+  hue = 0.3,
+  vertical = true,
+  paused,
+  maskCenter = { x: 0.35, y: 1.2 },
+  maskRadius = 0.65,
+  maskHeight = 0.54,
+  maskFeather = 0.04,
+  cutoutOffset = 0.40,
+  cutoutRadius = 0.4,
+  bobAmplitude = 0.01,
+  bobFrequency = 0.812,
+  bobPhase = 0.1,
+  topSplit = 0.7,
+  topFeather = 0.12,
+  bgColor,
+  bgTintMix = 1.0,
+}) => {
+  const fragmentShader = STEAM_FS;
+
+  const uniforms: Record<string, THREE.IUniform> = {
+    uSpeed: { value: speed },
+    uDensity: { value: density },
+    uBrightness: { value: brightness },
+    uAlpha: { value: alpha },
+    uHue: { value: hue },
+    uVertical: { value: vertical ? 1.0 : 0.0 },
+    uMaskCenter: { value: new THREE.Vector2(maskCenter.x, maskCenter.y) },
+    uMaskRadius: { value: maskRadius },
+    uMaskHeight: { value: maskHeight },
+    uMaskFeather: { value: maskFeather },
+    uCutoutOffset: { value: cutoutOffset },
+    uCutoutRadius: { value: cutoutRadius },
+    uBobAmp: { value: bobAmplitude },
+    uBobFreq: { value: bobFrequency },
+    uBobPhase: { value: bobPhase },
+    uTopSplit: { value: topSplit },
+    uTopFeather: { value: topFeather },
+    uBgColor: { value: new THREE.Vector3(bgColor?.r ?? 0.7, bgColor?.g ?? 0.9, bgColor?.b ?? 0.7) },
+    uBgTintMix: { value: bgColor ? bgTintMix : 0.0 },
+  };
+
+  const speedRef = useRef(speed);
+  const densityRef = useRef(density);
+  const brightnessRef = useRef(brightness);
+  const alphaRef = useRef(alpha);
+  const hueRef = useRef(hue);
+  const verticalRef = useRef(vertical);
+  const maskCenterRef = useRef(maskCenter);
+  const maskRadiusRef = useRef(maskRadius);
+  const maskHeightRef = useRef(maskHeight);
+  const maskFeatherRef = useRef(maskFeather);
+  const cutoutOffsetRef = useRef(cutoutOffset);
+  const cutoutRadiusRef = useRef(cutoutRadius);
+  const bobAmpRef = useRef(bobAmplitude);
+  const bobFreqRef = useRef(bobFrequency);
+  const bobPhaseRef = useRef(bobPhase);
+  const topSplitRef = useRef(topSplit);
+  const topFeatherRef = useRef(topFeather);
+  const bgColorRef = useRef(bgColor);
+  const bgTintMixRef = useRef(bgTintMix);
+
+  useEffect(() => { speedRef.current = speed; }, [speed]);
+  useEffect(() => { densityRef.current = density; }, [density]);
+  useEffect(() => { brightnessRef.current = brightness; }, [brightness]);
+  useEffect(() => { alphaRef.current = alpha; }, [alpha]);
+  useEffect(() => { hueRef.current = hue; }, [hue]);
+  useEffect(() => { verticalRef.current = vertical; }, [vertical]);
+  useEffect(() => { maskCenterRef.current = maskCenter; }, [maskCenter]);
+  useEffect(() => { maskRadiusRef.current = maskRadius; }, [maskRadius]);
+  useEffect(() => { maskHeightRef.current = maskHeight; }, [maskHeight]);
+  useEffect(() => { maskFeatherRef.current = maskFeather; }, [maskFeather]);
+  useEffect(() => { cutoutOffsetRef.current = cutoutOffset; }, [cutoutOffset]);
+  useEffect(() => { cutoutRadiusRef.current = cutoutRadius; }, [cutoutRadius]);
+  useEffect(() => { bobAmpRef.current = bobAmplitude; }, [bobAmplitude]);
+  useEffect(() => { bobFreqRef.current = bobFrequency; }, [bobFrequency]);
+  useEffect(() => { bobPhaseRef.current = bobPhase; }, [bobPhase]);
+  useEffect(() => { topSplitRef.current = topSplit; }, [topSplit]);
+  useEffect(() => { topFeatherRef.current = topFeather; }, [topFeather]);
+  useEffect(() => { bgColorRef.current = bgColor; }, [bgColor]);
+  useEffect(() => { bgTintMixRef.current = bgTintMix; }, [bgTintMix]);
+
+  return (
+    <ShaderCanvas
+      fragmentShader={fragmentShader}
+      uniforms={uniforms}
+      transparent
+      paused={paused}
+      onBeforeFrame={(u) => {
+        if (u.uSpeed) u.uSpeed.value = speedRef.current;
+        if (u.uDensity) u.uDensity.value = densityRef.current;
+        if (u.uBrightness) u.uBrightness.value = brightnessRef.current;
+        if (u.uAlpha) u.uAlpha.value = alphaRef.current;
+        if (u.uHue) u.uHue.value = hueRef.current;
+        if (u.uVertical) u.uVertical.value = verticalRef.current ? 1.0 : 0.0;
+        if (u.uMaskCenter) {
+          const c = maskCenterRef.current;
+          u.uMaskCenter.value.set(c.x, c.y);
+        }
+        if (u.uMaskRadius) u.uMaskRadius.value = maskRadiusRef.current;
+        if (u.uMaskHeight) u.uMaskHeight.value = maskHeightRef.current;
+        if (u.uMaskFeather) u.uMaskFeather.value = maskFeatherRef.current;
+        if (u.uCutoutOffset) u.uCutoutOffset.value = cutoutOffsetRef.current;
+        if (u.uCutoutRadius) u.uCutoutRadius.value = cutoutRadiusRef.current;
+        if (u.uBobAmp) u.uBobAmp.value = bobAmpRef.current;
+        if (u.uBobFreq) u.uBobFreq.value = bobFreqRef.current;
+        if (u.uBobPhase) u.uBobPhase.value = bobPhaseRef.current;
+        if (u.uTopSplit) u.uTopSplit.value = topSplitRef.current;
+        if (u.uTopFeather) u.uTopFeather.value = topFeatherRef.current;
+        if (u.uBgColor) {
+          const bg = bgColorRef.current ?? { r: 0.7, g: 0.9, b: 0.7 };
+          u.uBgColor.value.set(bg.r, bg.g, bg.b);
+        }
+        if (u.uBgTintMix) u.uBgTintMix.value = bgTintMixRef.current ?? 0.0;
+      }}
+    />
+  );
+};
 
 export default SteamShader;
 
