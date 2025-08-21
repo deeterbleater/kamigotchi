@@ -116,7 +116,16 @@ export const KamiCard = (props: Props) => {
   // grayscale amount should go from 1 -> 0 over cooldown
   const grayAmount = shaped; // 1 at start, 0 at end
 
-  // Final-second static wipe (wait 0.5s, then 0.5s wipe)
+  // Drive periodic re-render while on cooldown so CSS filter progresses
+  const isOnCooldown = onCooldown(kami);
+  const [cooldownTick, setCooldownTick] = useState(0);
+  useEffect(() => {
+    if (!isOnCooldown) return;
+    const id = setInterval(() => setCooldownTick((t) => (t + 1) % 1000000), 200);
+    return () => clearInterval(id);
+  }, [isOnCooldown]);
+
+  // Final-second uniform static wipe (wait 0.5s, then 0.5s wipe)
   const lastSecond = remaining <= 1.0;
   const timeIntoLast = lastSecond ? Math.max(0, 1.0 - remaining) : 0;
   const wipeWait = 0.5;
@@ -150,32 +159,51 @@ export const KamiCard = (props: Props) => {
         foreground:
           showCooldown && onCooldown(kami)
             ? (() => {
-                // Fade out static and return color over the entire cooldown
-                const staticAlpha = 0.96 * shaped; // 0.96 -> 0.0 across cooldown
+                // Static grain and wipe are updated per-frame via onBeforeFrame
+                const staticLayer: any = makeStaticLayer({ brightness: 1.6, alpha: 0.96, vertical: true });
+                staticLayer.onBeforeFrame = (uniforms: any) => {
+                  const tot = calcCooldownRequirement(kami);
+                  const rem = calcCooldown(kami);
+                  const prog = tot > 0 ? Math.min(1, Math.max(0, rem / tot)) : 0;
+                  const eased = Math.pow(prog, 1.25);
+                  const alpha = 0.96 * eased;
+                  if (uniforms.uAlpha) uniforms.uAlpha.value = alpha;
+                };
+
+                // Final-second uniform static wipe: wait 0.5s, then 0.5s fade
+                const wipeLayer: any = makeStaticLayer({
+                  brightness: 1.7,
+                  alpha: 0.0,
+                  vertical: true,
+                  topFeather: 0.0,
+                  maskRadius: 0.0,
+                  maskHeight: 0.0,
+                });
+                wipeLayer.onBeforeFrame = (uniforms: any) => {
+                  const tot = calcCooldownRequirement(kami);
+                  const rem = calcCooldown(kami);
+                  const lastSecond = rem <= 1.0 && rem > 0; // only show while > 0 and <= 1s
+                  if (!lastSecond) {
+                    if (uniforms.uAlpha) uniforms.uAlpha.value = 0.0;
+                    return;
+                  }
+                  const timeIntoLast = Math.max(0, 1.0 - rem);
+                  const wait = 0.5;
+                  const dur = 0.5;
+                  const wp = Math.max(0, Math.min(1, (timeIntoLast - wait) / dur));
+                  const a = 0.9 * (1 - wp);
+                  if (uniforms.uTopSplit) uniforms.uTopSplit.value = 2.0; // uniform
+                  if (uniforms.uAlpha) uniforms.uAlpha.value = a;
+                };
+
                 return (
                   <>
                     {/* Subtle CRT layer remains constant */}
                     <CRTShader brightness={1.6} alpha={0.96} />
-                    {/* Static grain that fades away smoothly over full cooldown */}
-                    <ShaderStack layers={[makeStaticLayer({ brightness: 1.6, alpha: staticAlpha, vertical: true })]} />
-                    {/* Final-second wipe using StaticShader */}
-                    {wipeProgress > 0 && (() => {
-                      const wipeLayer: any = makeStaticLayer({
-                        brightness: 1.7,
-                        alpha: 0.9,
-                        vertical: true,
-                        topFeather: 0.0,
-                        // Set mask inputs to produce uniform coverage
-                        maskRadius: 0.0,
-                        maskHeight: 0.0,
-                      });
-                      wipeLayer.onBeforeFrame = (uniforms: any) => {
-                        // Disable top-split gradient and show uniform static
-                        if (uniforms.uTopSplit) uniforms.uTopSplit.value = 2.0; // outside view -> mask=0
-                        if (uniforms.uAlpha) uniforms.uAlpha.value = 0.9 * (1 - wipeProgress);
-                      };
-                      return <ShaderStack layers={[wipeLayer]} animateWhenOffscreen />;
-                    })()}
+                    {/* Static grain fades over full cooldown */}
+                    <ShaderStack layers={[staticLayer]} animateWhenOffscreen />
+                    {/* Final-second wipe */}
+                    <ShaderStack layers={[wipeLayer]} animateWhenOffscreen />
                   </>
                 );
               })()
