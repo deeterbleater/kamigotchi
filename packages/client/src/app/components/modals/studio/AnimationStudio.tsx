@@ -316,7 +316,7 @@ export const AnimationStudio: UIComponent = {
 
           </Sidebar>
           <Preview>
-            <ShaderStack layers={layers} animateWhenOffscreen />
+            <ShaderStack layers={layers} animateWhenOffscreen style={{ zIndex: 0 }} />
             <KamiPreview>
               <KamiPreviewHeader>
                 <span>Kami Card Preview</span>
@@ -366,11 +366,12 @@ const Container = styled.div`
 const Preview = styled.div`
   position: relative;
   width: 48vw;
-  height: 36vh;
+  min-height: 36vh;
   border: 2px solid #222;
   border-radius: 10px;
   overflow: hidden;
   background: #000;
+  margin-top: 80px;
 `;
 
 const Sidebar = styled.div`
@@ -434,8 +435,9 @@ const KV = styled.div`
 `;
 
 const KamiPreview = styled.div`
-  position: absolute;
-  inset: 1vw;
+  position: relative;
+  z-index: 1;
+  padding: 1vw;
   display: flex;
   flex-direction: column;
   gap: 0.4vw;
@@ -454,6 +456,8 @@ const KamiControls = styled.div`
   flex-wrap: wrap;
   gap: 0.4vw;
   margin-top: 0.8vh;
+  width: 100%;
+  max-width: 48vw;
 `;
 
 const StateButton = styled.button`
@@ -465,6 +469,9 @@ const StateButton = styled.button`
   color: white;
   border: 1px solid #555;
   border-radius: 3px;
+  flex: 0 1 auto;
+  white-space: nowrap;
+  margin-bottom: 0.3vh;
   &:hover {
     background: #444;
   }
@@ -484,5 +491,3 @@ const RefreshButton = styled.button`
     color: white;
   }
 `;
-
-
