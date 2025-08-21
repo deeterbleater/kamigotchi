@@ -339,8 +339,16 @@ export const AnimationStudio: UIComponent = {
                 <StateButton 
                   onClick={() => {
                     const nowSec = Math.floor(Date.now() / 1000);
-                    setCooldownSec(nowSec);
-                    setKamiState('cooldown');
+                    try {
+                      // Start at the final second of cooldown to preview the wipe
+                      const req = calcCooldownRequirement(mockKami);
+                      const cdStart = nowSec - (req - 1); // so remaining ~1s
+                      setCooldownSec(cdStart);
+                      setKamiState('cooldown');
+                    } catch {
+                      setCooldownSec(nowSec);
+                      setKamiState('cooldown');
+                    }
                   }}
                 >
                   Trigger Cooldown Now

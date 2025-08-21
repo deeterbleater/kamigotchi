@@ -17,8 +17,6 @@ import { LightningShader } from 'app/components/shaders/LightningShader';
 import { ShaderStack } from 'app/components/shaders/ShaderStack';
 import { makeStaticLayer } from 'app/components/shaders/StaticShader';
 import { CRTShader } from 'app/components/shaders/CRTShader';
-import { makeConwayRevealLayer } from 'app/components/shaders/ConwayRevealShader';
-import { BlockReveal } from 'app/components/shaders/BlockReveal';
 
 interface Props {
   kami: Kami; // assumed to have a harvest attached
@@ -109,7 +107,23 @@ export const KamiCard = (props: Props) => {
     }));
   }, [getTempBonuses, kami]);
 
-  const Title = (
+  // compute cooldown progress
+  const totalCooldown = calcCooldownRequirement(kami);
+  const remaining = calcCooldown(kami);
+  const progress = totalCooldown > 0 ? Math.min(1, Math.max(0, remaining / totalCooldown)) : 0;
+  const shaped = Math.pow(progress, 1.25); // slightly eased fade
+
+  // grayscale amount should go from 1 -> 0 over cooldown
+  const grayAmount = shaped; // 1 at start, 0 at end
+
+  // Final-second static wipe (wait 0.5s, then 0.5s wipe)
+  const lastSecond = remaining <= 1.0;
+  const timeIntoLast = lastSecond ? Math.max(0, 1.0 - remaining) : 0;
+  const wipeWait = 0.5;
+  const wipeDur = 0.5;
+  const wipeProgress = lastSecond ? Math.max(0, Math.min(1, (timeIntoLast - wipeWait) / wipeDur)) : 0;
+
+  const TitleSection = (
     <TitleBar>
       <TitleText key='title' onClick={() => handleKamiClick()}>
         {kami.name}
@@ -121,26 +135,6 @@ export const KamiCard = (props: Props) => {
     </TitleBar>
   );
 
-  const Bonuses = itemBonuses.length > 0 && (
-    <Buffs>
-      {itemBonuses.map((bonus, i) => (
-        <TextTooltip key={i} text={[bonus.text]} direction='row'>
-          <Buff src={bonus.image} />
-        </TextTooltip>
-      ))}
-    </Buffs>
-  );
-
-  // compute cooldown progress
-  const totalCooldown = calcCooldownRequirement(kami);
-  const remaining = calcCooldown(kami);
-  const progress = totalCooldown > 0 ? Math.min(1, Math.max(0, remaining / totalCooldown)) : 0;
-  const shaped = Math.pow(progress, 1.5);
-  const cdFracGlobal = 1 - shaped; // 0 at start -> 1 at end
-  // Grayscale stays full until last 25%, then fades to color
-  const grayPhase = Math.max(0, (cdFracGlobal - 0.75) / 0.25); // 0..1 after 75%
-  const grayAmount = cdFracGlobal < 0.75 ? 1 : Math.max(0, 1 - grayPhase);
-
   return (
     <Card
       image={{
@@ -150,38 +144,45 @@ export const KamiCard = (props: Props) => {
         onClick: handleKamiClick,
         filter:
           showCooldown && onCooldown(kami)
-            ? (grayAmount > 0 ? `grayscale(${grayAmount}) contrast(1.1)` : undefined)
+            ? (grayAmount > 0 ? `grayscale(${grayAmount}) contrast(1.05)` : undefined)
             : undefined,
         background: undefined,
         foreground:
           showCooldown && onCooldown(kami)
             ? (() => {
-                const cdFrac = cdFracGlobal; // 0 at start -> 1 at end
-                // Block reveal completes by 75% of cooldown
-                const blockProgress = Math.max(0, Math.min(1, 1 - cdFrac / 0.75));
-                // Static begins clearing only after 75%
-                const staticPhase = Math.max(0, (cdFrac - 0.75) / 0.25); // 0..1 after 75%
-                const staticAlpha = 0.96 * (1 - staticPhase); // hold until 75%, then fade to 0
+                // Fade out static and return color over the entire cooldown
+                const staticAlpha = 0.96 * shaped; // 0.96 -> 0.0 across cooldown
                 return (
                   <>
-                    {/* Lowest: Block reveal overlay */}
-                    <BlockReveal
-                      progress={blockProgress}
-                      rows={20}
-                      cols={20}
-                      seed={kami.index || 1}
-                    />
-                    {/* Middle: CRT, constant */}
+                    {/* Subtle CRT layer remains constant */}
                     <CRTShader brightness={1.6} alpha={0.96} />
-                    {/* Top: Static, clears only in last 25% */}
-                    <ShaderStack layers={[ makeStaticLayer({ brightness: 1.6, alpha: staticAlpha, vertical: true }) ]} />
+                    {/* Static grain that fades away smoothly over full cooldown */}
+                    <ShaderStack layers={[makeStaticLayer({ brightness: 1.6, alpha: staticAlpha, vertical: true })]} />
+                    {/* Final-second wipe using StaticShader */}
+                    {wipeProgress > 0 && (() => {
+                      const wipeLayer: any = makeStaticLayer({
+                        brightness: 1.7,
+                        alpha: 0.9,
+                        vertical: true,
+                        topFeather: 0.0,
+                        // Set mask inputs to produce uniform coverage
+                        maskRadius: 0.0,
+                        maskHeight: 0.0,
+                      });
+                      wipeLayer.onBeforeFrame = (uniforms: any) => {
+                        // Disable top-split gradient and show uniform static
+                        if (uniforms.uTopSplit) uniforms.uTopSplit.value = 2.0; // outside view -> mask=0
+                        if (uniforms.uAlpha) uniforms.uAlpha.value = 0.9 * (1 - wipeProgress);
+                      };
+                      return <ShaderStack layers={[wipeLayer]} animateWhenOffscreen />;
+                    })()}
                   </>
                 );
               })()
             : undefined,
       }}
     >
-      {Title}
+      {TitleSection}
       <Content>
         <ContentRow>
           <ContentColumn key='column-1'>
@@ -195,7 +196,15 @@ export const KamiCard = (props: Props) => {
           </ContentColumn>
         </ContentRow>
         <ContentBottom>
-          {Bonuses}
+          {itemBonuses.length > 0 && (
+            <Buffs>
+              {itemBonuses.map((bonus, i) => (
+                <TextTooltip key={i} text={[bonus.text]} direction='row'>
+                  <Buff src={bonus.image} />
+                </TextTooltip>
+              ))}
+            </Buffs>
+          )}
           <ContentActions>{actions}</ContentActions>
         </ContentBottom>
       </Content>
