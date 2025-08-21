@@ -24,6 +24,7 @@ import { Presale } from './modals/presale';
 import { Reveal } from './modals/reveal/Reveal';
 import { Settings } from './modals/settings';
 import { TradingModal } from './modals/trading';
+import { AnimationStudio } from './modals/studio/AnimationStudio';
 // unused
 import { FundOperator } from './modals/FundOperator';
 
@@ -132,6 +133,10 @@ export const allComponents: UIComponentWithGrid[] = [
   {
     uiComponent: Settings,
     gridConfig: { colStart: 67, colEnd: 100, rowStart: 8, rowEnd: 75 },
+  },
+  {
+    uiComponent: AnimationStudio,
+    gridConfig: { colStart: 20, colEnd: 80, rowStart: 20, rowEnd: 80 },
   },
   {
     uiComponent: TradingModal,
