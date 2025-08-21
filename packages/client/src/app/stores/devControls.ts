@@ -16,13 +16,15 @@ interface DevControlsState {
   send: (target: DevControlsTarget, type: string, payload?: any) => void;
 }
 
-export const useDevControls = create<DevControlsState>((set, get) => ({
+export const useDevControls = create<DevControlsState>((set) => ({
   lastEvent: undefined,
   _token: 0,
   send: (target: DevControlsTarget, type: string, payload?: any) => {
     try {
-      const nextToken = get()._token + 1;
-      set({ lastEvent: { target, type, payload, token: nextToken }, _token: nextToken });
+      set((prev) => {
+        const nextToken = prev._token + 1;
+        return { lastEvent: { target, type, payload, token: nextToken }, _token: nextToken };
+      });
     } catch (e) {
       // swallow errors to avoid crashing the app in dev mode
       console.warn('[DevControls] send failed', e);

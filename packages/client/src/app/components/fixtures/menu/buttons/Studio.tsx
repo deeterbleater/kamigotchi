@@ -5,9 +5,11 @@ import { useVisibility } from 'app/stores';
 export const StudioMenuButton = () => {
   const { modals, setModals } = useVisibility();
   
-  // Only show in development mode (localhost:3000)
-  const isDev = window.location.hostname === 'localhost' && 
-                window.location.port === '3000';
+  // Only show in development mode (localhost:3000); SSR-safe
+  const isDev =
+    typeof window !== 'undefined' &&
+    window.location.hostname === 'localhost' &&
+    window.location.port === '3000';
   
   if (!isDev) return null;
 

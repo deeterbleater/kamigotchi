@@ -25,8 +25,6 @@ import { Reveal } from './modals/reveal/Reveal';
 import { Settings } from './modals/settings';
 import { TradingModal } from './modals/trading';
 import { AnimationStudio } from './modals/studio/AnimationStudio';
-// unused
-import { FundOperator } from './modals/FundOperator';
 
 import type { UIComponentWithGrid } from 'app/root/types';
 import { Quests } from './modals/quests';
@@ -134,10 +132,15 @@ export const allComponents: UIComponentWithGrid[] = [
     uiComponent: Settings,
     gridConfig: { colStart: 67, colEnd: 100, rowStart: 8, rowEnd: 75 },
   },
-  {
-    uiComponent: AnimationStudio,
-    gridConfig: { colStart: 20, colEnd: 80, rowStart: 20, rowEnd: 80 },
-  },
+  ...(
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? [{
+          uiComponent: AnimationStudio,
+          gridConfig: { colStart: 20, colEnd: 80, rowStart: 20, rowEnd: 80 },
+        }]
+      : []
+  ),
   {
     uiComponent: TradingModal,
     gridConfig: { colStart: 2, colEnd: 67, rowStart: 8, rowEnd: 99 },
@@ -159,26 +162,6 @@ export const allComponents: UIComponentWithGrid[] = [
   {
     uiComponent: EmaBoard,
     gridConfig: { colStart: 33, colEnd: 67, rowStart: 15, rowEnd: 99 },
-  },
-  {
-    uiComponent: FundOperator,
-    gridConfig: { colStart: 30, colEnd: 70, rowStart: 30, rowEnd: 74 },
-  },
-  {
-    uiComponent: GachaModal,
-    gridConfig: { colStart: 11, colEnd: 89, rowStart: 8, rowEnd: 85 },
-  },
-  {
-    uiComponent: KamiDetails,
-    gridConfig: { colStart: 11, colEnd: 67, rowStart: 8, rowEnd: 99 },
-  },
-  {
-    uiComponent: LeaderboardModal,
-    gridConfig: { colStart: 32, colEnd: 70, rowStart: 20, rowEnd: 78 },
-  },
-  {
-    uiComponent: LootBoxModal,
-    gridConfig: { colStart: 36, colEnd: 65, rowStart: 20, rowEnd: 80 },
   },
   {
     uiComponent: Reveal,
