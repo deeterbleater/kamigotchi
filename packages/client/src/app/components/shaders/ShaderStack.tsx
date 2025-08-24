@@ -41,8 +41,26 @@ export const ShaderStack: React.FC<ShaderStackProps> = ({
   const materialsRef = useRef<THREE.ShaderMaterial[]>([]);
   const meshRef = useRef<THREE.Mesh | null>(null);
   const frameRef = useRef<number | null>(null);
-  const startTimeRef = useRef<number>(performance.now());
-  const [isVisible, setIsVisible] = useState<boolean>(true);
+// packages/client/src/app/components/shaders/ShaderStack.tsx
+
+// Set lazily in the render loop to avoid SSR "performance is undefined"
+const startTimeRef = useRef<number>(0);
+const [isVisible, setIsVisible] = useState<boolean>(true);
+
+// … elsewhere in the same file …
+
+// inside the animation/render loop
+const loop = () => {
+  // Initialize startTimeRef on first client-side frame
+  if (startTimeRef.current === 0 && typeof performance !== 'undefined') {
+    startTimeRef.current = performance.now();
+  }
+
+  const now = performance.now();
+  // existing timing logic, e.g.:
+  const t = (now - startTimeRef.current) / 1000;
+  // … rest of loop …
+};
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const ioRef = useRef<IntersectionObserver | null>(null);
 
